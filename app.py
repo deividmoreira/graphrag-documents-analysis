@@ -1,59 +1,59 @@
-# Aplicativo Streamlit para análise de contratos usando GraphRAG
+# Streamlit app for contract analysis powered by GraphRAG
 
-# Importação para criação de arquivos temporários
+# Utilities to manage temporary files
 import tempfile
 
-# Framework Streamlit para interface do usuário
+# Streamlit framework for the user interface
 import streamlit as st
 
-# Loader de documentos PDF
+# PDF document loader
 from langchain_community.document_loaders import PyPDFLoader
 
-# Biblioteca GraphRAG para análise com grafos
+# GraphRAG orchestration layer
 from graphrag.graph_rag import GraphRAG
 
-# Componente chat para Streamlit
+# Chat component for Streamlit
 from streamlit_chat import message
 
-# Execução concorrente para melhorar desempenho
+# Concurrency utilities
 from concurrent.futures import ThreadPoolExecutor
 
-# Função para carregar contratos usando PyPDFLoader
+# Load a contract with PyPDFLoader
 def load_contract(file_path):
     loader = PyPDFLoader(file_path)
     documents = loader.load()
     return documents[:20]
 
-# Função para realizar consultas com GraphRAG em documentos carregados
+# Execute a GraphRAG query on the uploaded documents
 def query_graph_rag(documents, query):
     graph_rag = GraphRAG()
     graph_rag.process_documents(documents)
     return graph_rag.query(query)
 
-# Função principal que define o aplicativo Streamlit
+# Entry point for the Streamlit application
 def main():
 
-    # Configuração da página no Streamlit
+    # Global Streamlit page configuration
     st.set_page_config(page_title="GraphRAG Contract Analyzer", page_icon=":100:", layout="wide")
 
-    # Título e subtítulo do projeto na interface
+    # Title and subtitle
     st.markdown("<h1 style='text-align: center;'>🧠 GraphRAG Contract Analyzer</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: center; color: gray;'>Construa grafos de conhecimento e responda perguntas sobre contratos em PDF com IA</h4>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center; color: gray;'>Build knowledge graphs and answer questions about PDF contracts with AI</h4>", unsafe_allow_html=True)
 
-    # Barra lateral com instruções de uso
-    st.sidebar.title("📌 Instruções de Uso")
+    # Sidebar instructions
+    st.sidebar.title("📌 Usage Instructions")
     st.sidebar.write("""
-    1. Faça o upload de um contrato em PDF.
-    2. Aguarde o processamento.
-    3. Pergunte algo sobre o contrato.
-    4. Receba respostas contextualizadas pela IA.
-    5. IA Generativa comete erros. SEMPRE verifique as respostas.
+    1. Upload a contract in PDF format.
+    2. Wait for the processing to finish.
+    3. Ask a question about the contract.
+    4. Review the AI-powered answer that references the document.
+    5. Generative AI can be wrong. Always validate the output.
     """)
 
-    # Informações adicionais sobre uso
-    st.sidebar.info("💡 Dica: perguntas específicas geram melhores respostas.")
+    # Additional hint
+    st.sidebar.info("💡 Tip: Specific questions lead to more precise answers.")
 
-    # Inicialização do estado da sessão Streamlit
+    # Session state initialization
     if 'ready' not in st.session_state:
         st.session_state['ready'] = False
     if 'documents' not in st.session_state:
@@ -63,21 +63,21 @@ def main():
     if 'past' not in st.session_state:
         st.session_state['past'] = []
 
-    # Divisão visual no Streamlit
+    # Horizontal separator
     st.divider()
 
-    # Seção para upload de arquivo PDF
-    st.subheader("📤 Upload do Arquivo")
-    uploaded_file = st.file_uploader("Envie aqui seu contrato em PDF", type="pdf")
+    # File upload
+    st.subheader("📤 Upload Contract")
+    uploaded_file = st.file_uploader("Upload your contract in PDF format", type="pdf")
 
-    # Processamento após o upload do arquivo
+    # Processing pipeline once the file is available
     if uploaded_file is not None:
-        with st.spinner("🔍 Processando o documento..."):
+        with st.spinner("🔍 Processing document..."):
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 tmp_file.write(uploaded_file.read())
                 tmp_file_path = tmp_file.name
 
-            # Carregamento concorrente dos documentos
+            # Concurrent load of the document set
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(load_contract, tmp_file_path)
                 st.session_state['documents'] = future.result()
@@ -86,24 +86,24 @@ def main():
 
     st.divider()
 
-    # Seção para envio de consultas após documentos carregados
+    # Query section
     if st.session_state['ready'] and st.session_state['documents']:
         response_container = st.container()
         container = st.container()
 
         with container:
             with st.form(key = 'query_form', clear_on_submit = True):
-                query = st.text_input("💬 Pergunte algo sobre o contrato:", key = 'input')
-                submit_button = st.form_submit_button(label = '🚀 Enviar')
+                query = st.text_input("💬 Ask something about the contract:", key = 'input')
+                submit_button = st.form_submit_button(label = '🚀 Send')
 
-            # Execução da consulta usando GraphRAG
+            # Execute the GraphRAG query
             if submit_button and query:
-                with st.spinner("🤖 A IA Está Processando Sua Consulta. Seja Paciente e Aguarde..."):
+                with st.spinner("🤖 The AI is processing your request. Please wait..."):
                     with ThreadPoolExecutor() as executor:
                         future = executor.submit(query_graph_rag, st.session_state['documents'], query)
                         output = future.result()
 
-                    # Processamento e exibição da resposta
+                    # Handle the response payload
                     if output is not None:
                         if hasattr(output, 'content'):
                             response_text = output.content
@@ -115,13 +115,13 @@ def main():
                         st.session_state.past.append(query)
                         st.session_state.generated.append(response_text)
 
-        # Exibição das interações anteriores
+        # Display chat history
         if st.session_state['generated']:
             with response_container:
                 for i in range(len(st.session_state['generated'])):
                     message(st.session_state['past'][i], is_user=True, key=str(i) + '_user', avatar_style="fun-emoji")
                     message(st.session_state["generated"][i], key=str(i), avatar_style="bottts")
 
-# Execução da função principal
+# Entrypoint
 if __name__ == '__main__':
     main()

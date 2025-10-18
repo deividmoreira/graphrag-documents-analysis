@@ -1,46 +1,45 @@
-# Componente central que integra processamento de documentos, grafo de conhecimento e motor de consulta
+# Central component that wires the document processor, knowledge graph, and query engine
 
 # Imports
-from graphrag.document_processor import DocumentProcessor  # Classe para processar documentos e gerar embeddings
-from graphrag.knowledge_graph import KnowledgeGraph        # Classe para construção do grafo de conhecimento
-from graphrag.query_engine import QueryEngine              # Classe para execução de consultas no grafo e vetor de embeddings
+from graphrag.document_processor import DocumentProcessor  # Handles document chunking and embeddings
+from graphrag.knowledge_graph import KnowledgeGraph        # Builds the knowledge graph representation
+from graphrag.query_engine import QueryEngine              # Executes hybrid queries over graph and vector store
 
-# Classe GraphRAG que combina processamento de documentos, grafo e motor de consulta
+# GraphRAG class that combines document processing, graph construction, and querying
 class GraphRAG:
 
-    # Inicializa a classe e seus componentes
+    # Initialize dependencies
     def __init__(self):
 
-        # Instância do DocumentProcessor para dividir documentos e gerar embeddings
+        # Chunk documents and create embeddings
         self.document_processor = DocumentProcessor()
         
-        # Modelo OpenAI inicializado no DocumentProcessor, utilizado para gerar embeddings e respostas
+        # Shared OpenAI model used for embeddings and completions
         self.openai = self.document_processor.openai_model
         
-        # Instância do KnowledgeGraph, que armazena o grafo de conhecimento com entidades e conceitos
+        # Build the knowledge graph that stores entities and concepts
         self.knowledge_graph = KnowledgeGraph(openai_model = self.openai)
         
-        # Inicializa o QueryEngine como None, pois será definido após o processamento dos documentos
+        # Query engine is created after documents are processed
         self.query_engine = None
     
-    # Função para processar documentos, criando embeddings, grafo de conhecimento e um motor de consulta
+    # Process documents to generate embeddings, knowledge graph, and query engine
     def process_documents(self, documents):
 
-        # Usa o DocumentProcessor para dividir e gerar embeddings dos documentos
+        # Chunk documents and populate the vector index
         splits, vector_store, _, documents = self.document_processor.process_documents(documents) 
         
-        # Constrói o grafo de conhecimento com os pedaços (splits) dos documentos
+        # Build the knowledge graph from the document splits
         self.knowledge_graph.build_graph(splits)
         
-        # Inicializa o QueryEngine, que permite fazer consultas no grafo e no vetor de embeddings
+        # Instantiate the hybrid query engine
         self.query_engine = QueryEngine(vector_store, self.knowledge_graph, self.openai, documents)
 
-    # Função para fazer uma consulta no grafo e vetor de embeddings
+    # Query the graph/vector store hybrid engine
     def query(self, query: str):
         
-        # Executa a consulta usando o QueryEngine e retorna a resposta
+        # Execute the query and return only the answer text
         response, traversal_path, filtered_content = self.query_engine.query(query)
 
         return response
-
 

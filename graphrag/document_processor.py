@@ -1,102 +1,101 @@
-# Rotinas de processamento de documentos e geração de embeddings
+# Document processing routines and embedding generation helpers
 
-# Biblioteca para busca eficiente por similaridade de vetores
+# Efficient vector similarity search
 import faiss
 
-# Biblioteca NumPy para operações matemáticas com vetores
+# Numerical helper library
 import numpy as np
 
-# Biblioteca Streamlit para criar aplicações web
+# Streamlit secrets storage
 import streamlit as st
 
-# Cliente OpenAI para interação com a API
+# OpenAI client for API calls
 from openai import OpenAI
 
-# Divisor de texto recursivo para dividir documentos grandes em partes menores
+# Recursive text splitter to chunk long documents
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Classe para gerar embeddings de documentos usando a API OpenAI
+# Generates embeddings and completions using the OpenAI API
 class OpenAIEmbedding:
 
-    # Inicializa a classe com a chave da API OpenAI
+    # Initialize the client with the API key
     def __init__(self, api_key):
 
-        # Cria o cliente OpenAI usando a chave fornecida
-        self.client = OpenAI(api_key = api_key)
+        # Instantiate the OpenAI client
+       self.client = OpenAI(api_key = api_key)
 
-    # Método para gerar embeddings dos documentos usando modelo OpenAI
+    # Generate embeddings for the provided text
     def embed_documents(self, documents, model = "text-embedding-3-small", batch_size = 32):
 
-        # Remove quebras de linha dos documentos
+        # Normalize new lines
         documents = documents.replace("\n", " ")
 
-        # Faz uma solicitação para gerar embeddings usando a API OpenAI
+        # Request embeddings from the API
         response = self.client.embeddings.create(input = [documents], model = model)
 
-        # Extrai os embeddings da resposta da API
+        # Extract embeddings from the response
         embeddings = [data.embedding for data in response.data]
 
-        # Retorna os embeddings como um array NumPy
+        # Return a numpy array
         return np.array(embeddings)
 
-    # Método para obter uma resposta de completude usando o modelo GPT-4o-mini
+    # Issue a completion call with the configured model
     def completion(self, prompt, model = "gpt-4o-mini", max_tokens = 150, temperature = 0.3):
 
-        # Solicita resposta ao modelo GPT
+        # Request the completion
         response = self.client.chat.completions.create(model = model,
                                                        messages = prompt,
                                                        max_tokens = max_tokens,
                                                        temperature = temperature,
                                                        n = 1)
 
-        # Retorna o conteúdo da primeira resposta gerada
+        # Return the textual content
         return response.choices[0].message.content
 
-# Classe para processar documentos e calcular embeddings
+# Document processor that produces splits, embeddings, and vector indexes
 class DocumentProcessor:
 
-    # Inicializa a classe com o modelo de embeddings a ser utilizado
+    # Initialize the processor with the embedding model identifier
     def __init__(self, model = "text-embedding-3-small"):
 
-        # Armazena o modelo escolhido
+        # Store the embedding model name
         self.model = model
 
-        # Inicializa o divisor de texto com parâmetros específicos para chunking
+        # Configure the text splitter
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size = 1000, chunk_overlap = 200)
 
-        # Instancia o modelo OpenAI usando a chave secreta armazenada no Streamlit
+        # Instantiate the OpenAI embedding helper with the Streamlit secret
         self.openai_model = OpenAIEmbedding(api_key = st.secrets["API_KEY"])
 
-    # Método para dividir documentos em partes e calcular embeddings
+    # Split documents into chunks and compute embeddings
     def process_documents(self, documents):
 
-        # Divide documentos grandes em pequenos pedaços (chunks)
+        # Create document splits
         splits = self.text_splitter.split_documents(documents)
 
-        # Inicializa lista vazia para armazenar embeddings
+        # Collect embeddings for each chunk
         embeddings = []
 
-        # Gera embeddings para cada chunk do documento
+        # Generate embeddings chunk by chunk
         for chunk in splits:
             embedd = self.openai_model.embed_documents(chunk.page_content, model = self.model)
             embeddings.extend(embedd)
 
-        # Converte a lista de embeddings em um array NumPy
+        # Convert the list to a numpy array
         embedding_array = np.array(embeddings, dtype = "float32")
 
-        # Determina a dimensão dos embeddings
+        # Determine embedding dimensionality
         dimension = embedding_array.shape[1]
 
-        # Inicializa o armazenamento vetorial usando FAISS
+        # Build an in-memory FAISS index
         vector_store = faiss.IndexFlatL2(dimension)
 
-        # Adiciona os embeddings ao armazenamento vetorial
+        # Populate the index
         vector_store.add(embedding_array)
         
-        # Armazena as divisões originais dos documentos
+        # Store the original splits for later retrieval
         self.documents = splits
 
-        # Retorna os splits, armazenamento vetorial, modelo OpenAI e documentos processados
+        # Return the splits, vector store, embedding helper, and processed documents
         return splits, vector_store, self.openai_model, self.documents
-
 

@@ -1,246 +1,243 @@
-# Construção do grafo de conhecimento usado como contexto para respostas do LLM
+# Builds the knowledge graph used as context for LLM answers
 
-# Importa a biblioteca nltk para processamento de linguagem natural
+# Natural language processing utilities
 import nltk
 
-# Importa o módulo numpy para manipulação de arrays e operações numéricas
+# Array and numerical operations
 import numpy as np
 
-# Importa a biblioteca networkx para criação e manipulação de grafos
+# Graph construction and analysis
 import networkx as nx
 
-# Importa o lematizador WordNet do nltk
+# WordNet lemmatizer
 from nltk.stem import WordNetLemmatizer
 
-# Importa a função para calcular similaridade de cosseno entre vetores
+# Cosine similarity helper
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Importa ferramentas para execução paralela de tarefas
+# Parallel execution utilities
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Importa a biblioteca pydantic para validação de dados
+# Pydantic for data validation
 from pydantic import BaseModel, Field
 
-# Importa o tqdm para exibição de barras de progresso
+# Progress bar helper
 from tqdm import tqdm
 
-# Importa tipos úteis para anotações de funções
+# Typing helpers
 from typing import List, Tuple, Dict
 
-# Tenta carregar o corpus WordNet para lematização
+# Attempt to load the WordNet corpus for lemmatization
 try:
     from nltk.corpus import wordnet as wn
-# Baixa o corpus WordNet caso não esteja disponível
+# Download the corpus if it is not present
 except LookupError:
-    print("WordNet não encontrado. Baixando...")
+    print("WordNet not found. Downloading...")
     nltk.download('wordnet')
 
-# Verifica se o corpus WordNet foi baixado, caso contrário, baixa novamente
+# Double-check that the corpus is available
 try:
     nltk.data.find('corpora/wordnet')
 except LookupError:
     nltk.download('wordnet')
 
-# Define um modelo de dados para representar uma lista de conceitos
+# Pydantic model that represents a list of concepts
 class Concepts(BaseModel):
 
-    # Lista de conceitos descrita com um campo do pydantic
-    concepts_list: List[str] = Field(description = "Lista de conceitos")
+    # Concept list field
+    concepts_list: List[str] = Field(description = "List of concepts")
 
-# Define uma classe para construção e manipulação de um grafo de conhecimento
+# Knowledge graph builder and helper functions
 class KnowledgeGraph:
 
-    # Inicializa o grafo de conhecimento 
+    # Initialize the knowledge graph with an OpenAI model
     def __init__(self, openai_model):
 
-        # Armazena o modelo OpenAI para geração de embeddings e respostas
+        # Store the OpenAI model used for embeddings and completions
         self.openai_model = openai_model
 
-        # Cria um grafo vazio usando a biblioteca networkx
+        # Initialize an empty graph
         self.graph = nx.Graph()
 
-        # Inicializa um lematizador do WordNet
+        # WordNet lemmatizer
         self.lemmatizer = WordNetLemmatizer()
 
-        # Cria um cache para conceitos já processados
+        # Cache concepts that were already extracted
         self.concept_cache = {}
 
-        # Define o limite de similaridade para criação de arestas
+        # Similarity threshold used when connecting nodes
         self.edges_threshold = 0.8
 
-    # Função para construir o grafo com base em documentos divididos
+    # Build the knowledge graph from the document splits
     def build_graph(self, splits):
 
-        # Adiciona nós ao grafo baseados nos documentos
+        # Register nodes for each split
         self._add_nodes(splits)
 
-        # Extrai conceitos dos documentos para criar conexões no grafo
+        # Extract concepts that will drive the edges
         self._extract_concepts(splits)
 
-        # Cria embeddings para os documentos e os armazena
+        # Create embeddings that back the similarity scores
         embeddings = self._create_embeddings(splits)
 
-        # Adiciona arestas entre os nós com base na similaridade entre as embeddings
+        # Connect nodes that are similar enough
         self._add_edges(embeddings)
 
-    # Adiciona nós ao grafo a partir de divisões dos documentos
+    # Add one node per document split
     def _add_nodes(self, splits):
 
-        # Loop
+        # Iterate over document splits
         for i, split in enumerate(splits):
 
-            # Cada nó contém o conteúdo do documento associado
+            # Store the chunk content as node metadata
             self.graph.add_node(i, content = split.page_content)
 
-    # Cria embeddings para cada documento dividido usando o LLM
+    # Create embeddings for each split
     def _create_embeddings(self, splits):
         
-        # Cria a lista
+        # Embedding accumulator
         embeddings = []
         
-        # Loop
+        # Generate embeddings per chunk
         for split in splits:
             
-            # Gera embeddings para o conteúdo do documento
+            # Encode the chunk content
             embedd = self.openai_model.embed_documents(split.page_content)
             embeddings.extend(embedd)
 
-        # Converte os embeddings para um array numpy
+        # Convert the list into a numpy array
         embeddings = np.array(embeddings, dtype = "float32")
         
-        # Garante que os embeddings têm a forma correta
+        # Ensure the shape is two-dimensional
         if embeddings.ndim == 1:
             embeddings = embeddings.reshape(1, -1)
         
         return embeddings
 
-    # Calcula a similaridade de cosseno entre as embeddings
+    # Compute cosine similarity between embeddings
     def _compute_similarities(self, embeddings):
         return cosine_similarity(embeddings)
 
-    # Extrai entidades nomeadas de um conteúdo textual
+    # Extract named entities from the content
     def named_entities(self, content):
         
-        # Define um prompt para extrair entidades do texto
+        # Prompt the LLM for entity extraction
         prompt = [
             {
                 "role": "system",
-                "content": f"Dado o conteúdo: {content}, extraia entidades nomeadas do conteúdo."
+                "content": f"Given the following content: {content}, extract the named entities."
             }
         ]
         
-        # Gera a resposta do modelo OpenAI com as entidades
+        # Request the entities from the LLM
         response = self.openai_model.completion(prompt = prompt)
         
-        # Retorna a resposta como uma string
+        # Return the entities string
         named_entities = response
         
         return named_entities
 
-    # Extrai conceitos e entidades gerais de um conteúdo textual
+    # Extract concepts and entities from a text chunk
     def _extra_concepts_and_entities(self, content):
         
-        # Verifica se os conceitos já estão no cache
+        # Check if the content is already cached
         if content in self.concept_cache:
             return self.concept_cache[content]
 
-        # Extrai entidades nomeadas do conteúdo
+        # Retrieve named entities
         named_entities = [self.named_entities(content)]
         
-        # Define um prompt para extrair conceitos gerais
+        # Prompt to obtain key concepts
         prompts = (
-            f"Extraia os principais conceitos (excluindo entidades nomeadas) do texto a seguir:\n\n"
+            f"Extract the main concepts (excluding named entities) from the text below:\n\n"
             f"{content}\n\n"
-            f"Principais conceitos:"
+            f"Key concepts:"
         )
         
-        # Gera a resposta com os conceitos gerais
+        # Get the concept list
         response = self.openai_model.completion(prompt = [{"role": "user", "content": prompts}], temperature = 0.4)
         
-        # Divide os conceitos em uma lista a partir da resposta
+        # Convert the response into a list
         general_concepts = response.strip().split(', ')
         
-        # Combina entidades nomeadas e conceitos gerais em uma lista única
+        # Combine named entities and generic concepts
         all_concepts = list(set(named_entities + general_concepts))
         
-        # Armazena os conceitos no cache
+        # Cache the result
         self.concept_cache[content] = all_concepts
 
         return all_concepts
 
-    # Extrai conceitos para cada divisão do documento e adiciona ao grafo
+    # Extract concepts for every split and store them in the graph
     def _extract_concepts(self, splits):
 
-        # Trabalha com ThreadPoolExecutor para otimizar a performance
+        # Use a thread pool for faster extraction
         with ThreadPoolExecutor() as executor:
             
-            # Associa cada divisão a uma tarefa assíncrona de extração de conceitos
+            # Map each split to an asynchronous task
             future_to_node = {
                 executor.submit(self._extra_concepts_and_entities, split.page_content): i
                 for i, split in enumerate(splits)
             }
             
-            # Loop para extração de conceitos e entidades
-            for future in tqdm(as_completed(future_to_node), total = len(splits), desc = "Extraindo conceitos e entidades"):
+            # Collect results as they complete
+            for future in tqdm(as_completed(future_to_node), total = len(splits), desc = "Extracting concepts and entities"):
                 
-                # Obtém o índice do nó associado à tarefa concluída
+                # Get the node identifier
                 node = future_to_node[future]
                 
-                # Recupera os conceitos processados
+                # Retrieve the concept list
                 concepts = future.result()
                 
-                # Adiciona os conceitos ao nó correspondente no grafo
+                # Attach concepts to the node metadata
                 self.graph.nodes[node]['concepts'] = concepts
 
-    # Adiciona arestas entre os nós com base na similaridade e conceitos compartilhados
+    # Add edges based on similarity scores and shared concepts
     def _add_edges(self, embeddings):
         
-        # Calcula a matriz de similaridade entre as embeddings
+        # Compute the similarity matrix
         similarity_matrix = self._compute_similarities(embeddings)
         
-        # Obtém o número total de nós no grafo
+        # Total number of nodes in the graph
         num_nodes = len(self.graph.nodes)
 
-        # Loop para adicionar as arestas entre nós
-        for node1 in tqdm(range(num_nodes), desc = "Adicionando arestas"):
+        # Iterate over all node pairs
+        for node1 in tqdm(range(num_nodes), desc = "Adding edges"):
             for node2 in range(node1 + 1, num_nodes):
                 try:
-                    # Recupera a pontuação de similaridade entre os nós
+                    # Fetch similarity score between nodes
                     similarity_score = similarity_matrix[node1][node2]
                 except IndexError:
                     continue
 
-                # Compara o score de similaridade com o limite definido
+                # Check if the similarity is above threshold
                 if similarity_score > self.edges_threshold:
                     
-                    # Identifica conceitos compartilhados entre os dois nós
+                    # Concepts shared by both nodes
                     shared_concepts = set(self.graph.nodes[node1]['concepts']) & set(self.graph.nodes[node2]['concepts'])
                     
-                    # Calcula o peso da aresta com base na similaridade e nos conceitos
+                    # Compute edge weight based on similarity and shared concepts
                     edge_weight = self._calculate_edge_weight(node1, node2, similarity_score, shared_concepts)
                     
-                    # Adiciona a aresta ao grafo
+                    # Create the edge with metadata
                     self.graph.add_edge(node1, 
                                         node2, 
                                         weight = edge_weight, 
                                         similarity = similarity_score,
                                         shared_concepts = list(shared_concepts))
 
-    # Calcula o peso de uma aresta com base na similaridade e nos conceitos compartilhados
+    # Compute edge weight using similarity and shared concepts
     def _calculate_edge_weight(self, node1, node2, similarity_score, shared_concepts, alpha = 0.7, beta = 0.3):
         
-        # Determina o número máximo de conceitos compartilhados possíveis
+        # Maximum possible shared concepts
         max_possible_shared = min(len(self.graph.nodes[node1]['concepts']), len(self.graph.nodes[node2]['concepts']))
         
-        # Normaliza os conceitos compartilhados pelo máximo possível
+        # Normalize shared concepts
         normalized_shared_concepts = len(shared_concepts) / max_possible_shared if max_possible_shared > 0 else 0
         
-        # Calcula o peso final da aresta
+        # Final weight calculation
         return alpha * similarity_score + beta * normalized_shared_concepts
 
-    # Lematiza conceitos para normalizar variações de palavras
+    # Lemmatize concept text to normalize variants
     def _lemmatize_concepts(self, concept):
         return ' '.join([self.lemmatizer.lemmatize(word) for word in concept.lower().split()])
-
-
-

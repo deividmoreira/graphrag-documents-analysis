@@ -1,6 +1,6 @@
 # GraphRAG Contract Analyzer
 
-## Ambiente de desenvolvimento com Conda
+## Conda development environment
 
 ```
 conda create --name graphrag-contracts python=3.12
@@ -9,32 +9,31 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## Variáveis de ambiente
+## Environment variables
 
-Crie um arquivo `.streamlit/secrets.toml` na raiz do projeto contendo:
+Create a `.streamlit/secrets.toml` file at the project root with:
 
 ```
 [general]
-API_KEY = "sua-chave-da-openai"
+API_KEY = "your-openai-api-key"
 ```
 
-## Execução
+## Running the app
 
 ```
 streamlit run app.py
 ```
 
-## Exemplos de perguntas
+## Sample questions
 
-- Qual é o objeto principal do contrato?
-- Quais são as obrigações das partes envolvidas?
-- Existe multa prevista em caso de rescisão? Qual o valor?
+- What is the primary object of the contract?
+- What are the obligations for each party?
+- Is there a penalty for breach of contract? If so, what is the amount?
 
-## Manutenção do ambiente
+## Environment maintenance
 
 ```
 conda deactivate
 conda remove --name graphrag-contracts --all
 ```
-
 
