@@ -1,4 +1,4 @@
-# Projeto 5 - Grafo de Conhecimento com GraphRAG Para Aplicação de Análise de Contratos com IA
+# Aplicativo Streamlit para análise de contratos usando GraphRAG
 
 # Importação para criação de arquivos temporários
 import tempfile
@@ -10,7 +10,7 @@ import streamlit as st
 from langchain_community.document_loaders import PyPDFLoader
 
 # Biblioteca GraphRAG para análise com grafos
-from graphrag.dsa_graphrag import GraphRAG
+from graphrag.graph_rag import GraphRAG
 
 # Componente chat para Streamlit
 from streamlit_chat import message
@@ -19,13 +19,13 @@ from streamlit_chat import message
 from concurrent.futures import ThreadPoolExecutor
 
 # Função para carregar contratos usando PyPDFLoader
-def dsa_carrega_contrato(file_path):
+def load_contract(file_path):
     loader = PyPDFLoader(file_path)
     documents = loader.load()
     return documents[:20]
 
 # Função para realizar consultas com GraphRAG em documentos carregados
-def dsa_query_graph_rag(documents, query):
+def query_graph_rag(documents, query):
     graph_rag = GraphRAG()
     graph_rag.process_documents(documents)
     return graph_rag.query(query)
@@ -34,11 +34,11 @@ def dsa_query_graph_rag(documents, query):
 def main():
 
     # Configuração da página no Streamlit
-    st.set_page_config(page_title="Data Science Academy", page_icon=":100:", layout="wide")
+    st.set_page_config(page_title="GraphRAG Contract Analyzer", page_icon=":100:", layout="wide")
 
     # Título e subtítulo do projeto na interface
-    st.markdown("<h1 style='text-align: center;'>🧠 DSA RAG Projeto 5</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: center; color: gray;'>Grafo de Conhecimento com GraphRAG Para Aplicação de Análise de Contratos com IA</h4>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>🧠 GraphRAG Contract Analyzer</h1>", unsafe_allow_html=True)
+    st.markdown("<h4 style='text-align: center; color: gray;'>Construa grafos de conhecimento e responda perguntas sobre contratos em PDF com IA</h4>", unsafe_allow_html=True)
 
     # Barra lateral com instruções de uso
     st.sidebar.title("📌 Instruções de Uso")
@@ -52,10 +52,6 @@ def main():
 
     # Informações adicionais sobre uso
     st.sidebar.info("💡 Dica: perguntas específicas geram melhores respostas.")
-
-    # Botão de suporte ao usuário
-    if st.sidebar.button("Suporte"):
-        st.sidebar.write("Dúvidas? Envie um e-mail para: suporte@datascienceacademy.com.br")
 
     # Inicialização do estado da sessão Streamlit
     if 'ready' not in st.session_state:
@@ -83,7 +79,7 @@ def main():
 
             # Carregamento concorrente dos documentos
             with ThreadPoolExecutor() as executor:
-                future = executor.submit(dsa_carrega_contrato, tmp_file_path)
+                future = executor.submit(load_contract, tmp_file_path)
                 st.session_state['documents'] = future.result()
 
             st.session_state['ready'] = True
@@ -96,7 +92,7 @@ def main():
         container = st.container()
 
         with container:
-            with st.form(key = 'dsa_form', clear_on_submit = True):
+            with st.form(key = 'query_form', clear_on_submit = True):
                 query = st.text_input("💬 Pergunte algo sobre o contrato:", key = 'input')
                 submit_button = st.form_submit_button(label = '🚀 Enviar')
 
@@ -104,7 +100,7 @@ def main():
             if submit_button and query:
                 with st.spinner("🤖 A IA Está Processando Sua Consulta. Seja Paciente e Aguarde..."):
                     with ThreadPoolExecutor() as executor:
-                        future = executor.submit(dsa_query_graph_rag, st.session_state['documents'], query)
+                        future = executor.submit(query_graph_rag, st.session_state['documents'], query)
                         output = future.result()
 
                     # Processamento e exibição da resposta
@@ -129,6 +125,3 @@ def main():
 # Execução da função principal
 if __name__ == '__main__':
     main()
-
-
-

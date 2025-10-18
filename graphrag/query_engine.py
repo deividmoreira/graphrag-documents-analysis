@@ -1,10 +1,7 @@
-# Projeto 5 - Grafo de Conhecimento com GraphRAG Para Aplicação de Análise de Contratos com IA
-# Este módulo é usado no motor de consultas
+# Motor de consultas que combina o grafo de conhecimento e o índice vetorial
 
 # Imports
 import heapq                          # Para gerenciamento de fila de prioridade
-import numpy as np                    # Para manipulação de arrays e cálculos numéricos
-import streamlit as st                # Para criação de aplicativos web interativos
 from typing import List, Tuple, Dict  # Para anotações de tipos
 
 # Classe para verificar se o contexto contém uma resposta completa para uma query
@@ -17,7 +14,7 @@ class AnswerCheck:
         self.model = model  
 
         # Modelo OpenAI para geração de respostas
-        self.OpenAIModel = openai_model  
+        self.openai_model = openai_model  
 
     # Função para verificar se o contexto oferece uma resposta completa para a query
     def check_answer(self, query, context):
@@ -30,7 +27,7 @@ class AnswerCheck:
         ]
         
         # Aplica o LLM
-        response = self.OpenAIModel.completion(prompt = prompt)
+        response = self.openai_model.completion(prompt = prompt)
         
         # Limpa a resposta retornada e verifica se o contexto é completo
         text_response = response.replace("Sim, o contexto fornece uma resposta completa.", "")
@@ -270,7 +267,6 @@ class QueryEngine:
 
         # Retorna os documentos relevantes 
         return relevant_docs  
-
 
 
 

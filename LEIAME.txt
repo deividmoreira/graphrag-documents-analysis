@@ -1,34 +1,40 @@
-# Projeto 5 - Grafo de Conhecimento com GraphRAG Para Aplicação de Análise de Contratos com IA
+# GraphRAG Contract Analyzer
 
-# Para executar a app:
+## Ambiente de desenvolvimento com Conda
 
-# Abra o terminal ou prompt de comando, navegue até a pasta com os arquivos e execute o comando abaixo para criar um ambiente virtual:
+```
+conda create --name graphrag-contracts python=3.12
+conda activate graphrag-contracts
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-conda create --name dsaragp5 python=3.12
+## Variáveis de ambiente
 
-# Ative o ambiente:
+Crie um arquivo `.streamlit/secrets.toml` na raiz do projeto contendo:
 
-conda activate dsaragp5 (ou: source activate dsaragp5)
+```
+[general]
+API_KEY = "sua-chave-da-openai"
+```
 
-# Instale o pip e as dependências:
+## Execução
 
-conda install pip
-pip install -r requirements.txt 
+```
+streamlit run app.py
+```
 
-# Abra o terminal ou prompt de comando, navegue até a pasta com os arquivos e execute: 
+## Exemplos de perguntas
 
-streamlit run dsaprojeto5.py
+- Qual é o objeto principal do contrato?
+- Quais são as obrigações das partes envolvidas?
+- Existe multa prevista em caso de rescisão? Qual o valor?
 
-# Perguntas de exemplo:
+## Manutenção do ambiente
 
-# Qual o Objeto do Contrato?
-# Quais são as Obrigações do Contratante?
-# Em caso de rescisão por descumprimento de qualquer obrigação, a parte inadimplente ficará sujeita ao pagamento de multa compensatória de qual valor?
-
-# Use os comandos abaixo para desativar o ambiente virtual e remover o ambiente (opcional):
-
+```
 conda deactivate
-conda remove --name dsaragp5 --all
-
+conda remove --name graphrag-contracts --all
+```
 
 

@@ -1,5 +1,4 @@
-# Projeto 5 - Grafo de Conhecimento com GraphRAG Para Aplicação de Análise de Contratos com IA
-# Este módulo é usado para processar dados de texto e gerar embeddings
+# Rotinas de processamento de documentos e geração de embeddings
 
 # Biblioteca para busca eficiente por similaridade de vetores
 import faiss
@@ -99,6 +98,5 @@ class DocumentProcessor:
 
         # Retorna os splits, armazenamento vetorial, modelo OpenAI e documentos processados
         return splits, vector_store, self.openai_model, self.documents
-
 
 

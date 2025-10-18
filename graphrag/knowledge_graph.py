@@ -1,8 +1,4 @@
-# Projeto 5 - Grafo de Conhecimento com GraphRAG Para Aplicação de Análise de Contratos com IA
-# Este módulo é usado para gerar o grafo de conhecimento que será usado como contexto para o LLM responder a query do usuário
-
-# Importa o módulo para manipulação de arquivos temporários
-import tempfile
+# Construção do grafo de conhecimento usado como contexto para respostas do LLM
 
 # Importa a biblioteca nltk para processamento de linguagem natural
 import nltk
@@ -52,13 +48,13 @@ class Concepts(BaseModel):
     concepts_list: List[str] = Field(description = "Lista de conceitos")
 
 # Define uma classe para construção e manipulação de um grafo de conhecimento
-class knowledgeGraph:
+class KnowledgeGraph:
 
     # Inicializa o grafo de conhecimento 
     def __init__(self, openai_model):
 
         # Armazena o modelo OpenAI para geração de embeddings e respostas
-        self.OpenAIModel = openai_model
+        self.openai_model = openai_model
 
         # Cria um grafo vazio usando a biblioteca networkx
         self.graph = nx.Graph()
@@ -82,7 +78,7 @@ class knowledgeGraph:
         self._extract_concepts(splits)
 
         # Cria embeddings para os documentos e os armazena
-        embeddings = self._create_embeddings(splits, self.OpenAIModel)
+        embeddings = self._create_embeddings(splits)
 
         # Adiciona arestas entre os nós com base na similaridade entre as embeddings
         self._add_edges(embeddings)
@@ -97,7 +93,7 @@ class knowledgeGraph:
             self.graph.add_node(i, content = split.page_content)
 
     # Cria embeddings para cada documento dividido usando o LLM
-    def _create_embeddings(self, splits, openai_model):
+    def _create_embeddings(self, splits):
         
         # Cria a lista
         embeddings = []
@@ -106,7 +102,7 @@ class knowledgeGraph:
         for split in splits:
             
             # Gera embeddings para o conteúdo do documento
-            embedd = self.OpenAIModel.embed_documents(split.page_content)
+            embedd = self.openai_model.embed_documents(split.page_content)
             embeddings.extend(embedd)
 
         # Converte os embeddings para um array numpy
@@ -134,7 +130,7 @@ class knowledgeGraph:
         ]
         
         # Gera a resposta do modelo OpenAI com as entidades
-        response = self.OpenAIModel.completion(prompt = prompt)
+        response = self.openai_model.completion(prompt = prompt)
         
         # Retorna a resposta como uma string
         named_entities = response
@@ -159,7 +155,7 @@ class knowledgeGraph:
         )
         
         # Gera a resposta com os conceitos gerais
-        response = self.OpenAIModel.completion(prompt = [{"role": "user", "content": prompts}], temperature = 0.4)
+        response = self.openai_model.completion(prompt = [{"role": "user", "content": prompts}], temperature = 0.4)
         
         # Divide os conceitos em uma lista a partir da resposta
         general_concepts = response.strip().split(', ')
@@ -245,7 +241,6 @@ class knowledgeGraph:
     # Lematiza conceitos para normalizar variações de palavras
     def _lemmatize_concepts(self, concept):
         return ' '.join([self.lemmatizer.lemmatize(word) for word in concept.lower().split()])
-
 
 
 
